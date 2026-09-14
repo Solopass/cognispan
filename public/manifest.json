@@ -1,0 +1,18 @@
+{
+  "name": "CogniSpan | Working Memory Capacity Lab",
+  "short_name": "CogniSpan",
+  "description": "Scientific Working Memory Capacity (WMC) Training & Measurement Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
