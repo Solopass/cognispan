@@ -2,6 +2,20 @@
 
 CogniSpan is a scientific-grade, local-first progressive web application built to assess, train, and expand Working Memory Capacity (WMC) across the three empirically validated pillars of executive cognition: the **Phonological Loop**, the **Visuospatial Sketchpad**, and the **Central Executive / Updating Engine**.
 
+## Project status
+
+> **Working prototype, paused.** Last worked on 2026-09-08. Built on the previous PC and migrated 2026-09-14.
+
+| | |
+|---|---|
+| **Works** | All 5 tasks and the daily protocol UI are implemented. Data stays in the browser (IndexedDB/LocalStorage) with CSV/JSON export. |
+| **Checked on the new PC (2026-09-14)** | ✅ `bun run build` passes (TypeScript + Vite, 2 s). The app was **not** opened and played through. |
+| **Not done / unknown** | No automated tests. The psychometric scoring (d′, WAIS-IV norms, AOSPAN thresholds) hasn't been checked against the published references. No PWA install or offline check. |
+| **Needs** | Node 18+ or Bun. No API keys, no backend. |
+| **Next step** | Play through each task once and check the scores look sane, then decide whether it's worth publishing (clean enough to go public). |
+
+`bun install && bun run dev` works in place of the npm commands below.
+
 ---
 
 ## Getting Started
