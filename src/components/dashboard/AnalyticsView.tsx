@@ -217,7 +217,7 @@ export const AnalyticsView: React.FC = () => {
               return (
                 <div key={s.id} className="flex-1 min-w-[28px] max-w-[48px] flex flex-col items-center group relative">
                   <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 text-zinc-100 text-[10px] font-mono py-1 px-2 rounded border border-zinc-700 pointer-events-none whitespace-nowrap z-20 shadow-lg">
-                    {s.taskType.replace('_', ' ')}: Level {s.level} ({s.metrics.accuracyPercent}%)
+                    {s.taskType.replace(/_/g, ' ')}: Level {s.level} ({s.metrics.accuracyPercent}%)
                   </div>
 
                   <span className="text-[10px] font-mono text-zinc-400 mb-1">{s.level}</span>

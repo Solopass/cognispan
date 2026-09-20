@@ -177,7 +177,7 @@ export const DailyProtocolRunner: React.FC<DailyProtocolRunnerProps> = ({ onExit
           <div key={rec.id} className="p-3 bg-surface border border-surface-border rounded-xl flex items-center justify-between text-xs font-mono">
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-accent-emerald" />
-              <span className="text-zinc-300 font-semibold capitalize">{rec.taskType.replace('_', ' ')}</span>
+              <span className="text-zinc-300 font-semibold capitalize">{rec.taskType.replace(/_/g, ' ')}</span>
             </div>
             <span className="text-zinc-400">Level/Span: <strong className="text-zinc-100">{rec.level}</strong></span>
           </div>

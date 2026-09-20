@@ -25,6 +25,13 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
   const [illuminatedBlockId, setIlluminatedBlockId] = useState<number | null>(null);
   const [justTappedBlockId, setJustTappedBlockId] = useState<number | null>(null);
   const [userTaps, setUserTaps] = useState<number[]>([]);
+  // Authoritative tap buffer. `handleBlockTap` is re-created per render and the
+  // keydown listener is re-bound with it, so two taps landing inside one render
+  // would both read the same stale `userTaps` and the second would overwrite
+  // the first. That dropped a tap, and because the task auto-submits when the
+  // count reaches the target, the submit never fired and the trial stalled with
+  // no way to finish it.
+  const userTapsRef = useRef<number[]>([]);
   const [lastFeedback, setLastFeedback] = useState<{ correct: boolean } | null>(null);
 
   // Scores
@@ -69,6 +76,7 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
     const sequence = generateCorsiSequence(spanLen);
     targetSequenceRef.current = sequence;
     setUserTaps([]);
+    userTapsRef.current = [];
     setGameState('presenting');
     setIlluminatedBlockId(null);
     setJustTappedBlockId(null);
@@ -112,19 +120,20 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
 
   const handleBlockTap = useCallback((id: number) => {
     if (gameState !== 'tapping') return;
-    if (userTaps.length >= targetSequenceRef.current.length) return;
+    if (userTapsRef.current.length >= targetSequenceRef.current.length) return;
 
     audioEngine.playTone(450 + id * 45, 0.1, 'sine');
     setJustTappedBlockId(id);
     setTimeout(() => setJustTappedBlockId(null), 180);
 
-    const newTaps = [...userTaps, id];
+    const newTaps = [...userTapsRef.current, id];
+    userTapsRef.current = newTaps;
     setUserTaps(newTaps);
 
     if (newTaps.length === targetSequenceRef.current.length) {
       evaluateSubmission(newTaps);
     }
-  }, [gameState, userTaps]);
+  }, [gameState]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
