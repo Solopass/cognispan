@@ -45,6 +45,22 @@ export interface TrialTelemetry {
   timedOut: boolean;
 }
 
+/**
+ * One recall trial of a span task (digit span, Corsi).
+ *
+ * `target` is the sequence the participant was required to produce, i.e. after
+ * the mode transform (reversed for backward, sorted for ascending), so that
+ * position i of `target` and position i of `recalled` are directly comparable.
+ * That is what makes a serial position curve meaningful.
+ */
+export interface SpanTrial {
+  trialIndex: number;
+  spanLength: number;
+  target: (string | number)[];
+  recalled: (string | number)[];
+  correct: boolean;
+}
+
 export interface SessionMetrics {
   accuracyPercent: number;
   hits: number;
@@ -79,6 +95,8 @@ export interface SessionRecord {
   durationSeconds: number;
   metrics: SessionMetrics;
   trials: TrialTelemetry[];
+  /** Per-trial recall data for span tasks; absent for non-span tasks. */
+  spanTrials?: SpanTrial[];
 }
 
 export interface UserCognitiveProfile {

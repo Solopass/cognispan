@@ -4,7 +4,8 @@ import { timingEngine } from '../../../services/timingEngine';
 import { audioEngine } from '../../../services/audioEngine';
 import { storageService } from '../../../services/storageService';
 import { calculatePercentile, calculateZScore } from '../../../types/norms';
-import { CorsiMode, SessionRecord } from '../../../types/cognitive';
+import { calculateSerialPositionErrors } from '../../../services/psychometrics';
+import { CorsiMode, SessionRecord, SpanTrial } from '../../../types/cognitive';
 import { ArrowLeft, ArrowRight, Play, RotateCcw, CheckCircle2, Grid } from 'lucide-react';
 
 interface CorsiViewProps {
@@ -32,6 +33,9 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
   // count reaches the target, the submit never fired and the trial stalled with
   // no way to finish it.
   const userTapsRef = useRef<number[]>([]);
+  // Per-trial recall, in a ref so the end-of-session record includes the last
+  // trial rather than trailing it by a tick.
+  const spanTrialsRef = useRef<SpanTrial[]>([]);
   const [lastFeedback, setLastFeedback] = useState<{ correct: boolean } | null>(null);
 
   // Scores
@@ -60,6 +64,7 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
 
   const startTest = async () => {
     await audioEngine.initialize();
+    spanTrialsRef.current = [];
     currentSpanRef.current = 3;
     trialInSpanRef.current = 1;
     setCurrentSpan(3);
@@ -169,6 +174,17 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
       audioEngine.playFeedback('miss');
     }
 
+    // Compare against the order the participant had to produce, so position i
+    // of target lines up with position i of the taps.
+    const expected = mode === 'backward' ? [...target].reverse() : target;
+    spanTrialsRef.current.push({
+      trialIndex: spanTrialsRef.current.length,
+      spanLength: target.length,
+      target: expected,
+      recalled: [...taps],
+      correct: isCorrect
+    });
+
     setLastFeedback({ correct: isCorrect });
     setGameState('feedback');
 
@@ -221,9 +237,11 @@ export const CorsiView: React.FC<CorsiViewProps> = ({
         meanReactionTimeMs: 0,
         medianReactionTimeMs: 0,
         rtStandardDeviationMs: 0,
-        maxSpanReached: finalSpan
+        maxSpanReached: finalSpan,
+        serialPositionErrors: calculateSerialPositionErrors(spanTrialsRef.current).map(p => p.errorRate)
       },
-      trials: []
+      trials: [],
+      spanTrials: spanTrialsRef.current
     };
 
     lastSessionRecordRef.current = record;

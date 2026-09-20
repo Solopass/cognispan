@@ -4,7 +4,8 @@ import { timingEngine } from '../../../services/timingEngine';
 import { audioEngine } from '../../../services/audioEngine';
 import { storageService } from '../../../services/storageService';
 import { calculatePercentile, calculateZScore } from '../../../types/norms';
-import { DigitSpanMode, SessionRecord } from '../../../types/cognitive';
+import { calculateSerialPositionErrors } from '../../../services/psychometrics';
+import { DigitSpanMode, SessionRecord, SpanTrial } from '../../../types/cognitive';
 import { ArrowLeft, ArrowRight, Play, RotateCcw, Delete, CornerDownLeft, CheckCircle2, Award } from 'lucide-react';
 
 interface DigitSpanViewProps {
@@ -32,6 +33,9 @@ export const DigitSpanView: React.FC<DigitSpanViewProps> = ({
   const [totalTrialsAttempted, setTotalTrialsAttempted] = useState<number>(0);
 
   // Refs
+  // Per-trial recall, kept in a ref so the record written at the end of the
+  // session includes the final trial (state would still be one tick behind).
+  const spanTrialsRef = useRef<SpanTrial[]>([]);
   const targetSequenceRef = useRef<number[]>([]);
   const currentSpanRef = useRef<number>(3);
   const trialInSpanRef = useRef<number>(1);
@@ -53,6 +57,7 @@ export const DigitSpanView: React.FC<DigitSpanViewProps> = ({
 
   const startTest = async () => {
     await audioEngine.initialize();
+    spanTrialsRef.current = [];
     currentSpanRef.current = 3;
     trialInSpanRef.current = 1;
     passedCurrentSpanRef.current = false;
@@ -141,9 +146,23 @@ export const DigitSpanView: React.FC<DigitSpanViewProps> = ({
       audioEngine.playFeedback('miss');
     }
 
+    const expected = mode === 'backward'
+      ? [...target].reverse()
+      : mode === 'ascending'
+      ? [...target].sort((a, b) => a - b)
+      : target;
+
+    spanTrialsRef.current.push({
+      trialIndex: spanTrialsRef.current.length,
+      spanLength: target.length,
+      target: expected,
+      recalled: [...userInput],
+      correct: isCorrect
+    });
+
     setLastTrialResult({
       correct: isCorrect,
-      expected: mode === 'backward' ? [...target].reverse() : mode === 'ascending' ? [...target].sort((a,b)=>a-b) : target,
+      expected,
       actual: userInput
     });
 
@@ -221,9 +240,11 @@ export const DigitSpanView: React.FC<DigitSpanViewProps> = ({
         meanReactionTimeMs: 0,
         medianReactionTimeMs: 0,
         rtStandardDeviationMs: 0,
-        maxSpanReached: finalSpan
+        maxSpanReached: finalSpan,
+        serialPositionErrors: calculateSerialPositionErrors(spanTrialsRef.current).map(p => p.errorRate)
       },
-      trials: []
+      trials: [],
+      spanTrials: spanTrialsRef.current
     };
 
     lastSessionRecordRef.current = record;

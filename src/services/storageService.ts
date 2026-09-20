@@ -223,56 +223,40 @@ export class StorageService {
       'lure_type',
       'pressed_visual',
       'pressed_audio',
-      'trial_correct'
+      'trial_correct',
+      'span_length',
+      'target_sequence',
+      'recalled_sequence'
     ];
 
     const rows: string[] = [headers.join(',')];
 
+    // Columns shared by every row of a session.
+    const prefix = (s: SessionRecord) => [
+      s.id,
+      s.timestampIso,
+      s.taskType,
+      s.mode,
+      s.level,
+      s.totalTrials,
+      s.metrics.accuracyPercent,
+      s.metrics.hits,
+      s.metrics.misses,
+      s.metrics.falseAlarms,
+      s.metrics.dPrime ?? 'NA',
+      s.metrics.beta ?? 'NA',
+      s.metrics.meanReactionTimeMs ?? 'NA',
+      s.metrics.aospanAbsoluteScore ?? 'NA',
+      s.durationSeconds
+    ];
+    const NA = (n: number) => Array(n).fill('NA');
+
     for (const s of sessions) {
-      if (!s.trials || s.trials.length === 0) {
-        rows.push([
-          s.id,
-          s.timestampIso,
-          s.taskType,
-          s.mode,
-          s.level,
-          s.totalTrials,
-          s.metrics.accuracyPercent,
-          s.metrics.hits,
-          s.metrics.misses,
-          s.metrics.falseAlarms,
-          s.metrics.dPrime ?? 'NA',
-          s.metrics.beta ?? 'NA',
-          s.metrics.meanReactionTimeMs ?? 'NA',
-          s.metrics.aospanAbsoluteScore ?? 'NA',
-          s.durationSeconds,
-          'NA',
-          'NA',
-          'NA',
-          'NA',
-          'NA',
-          'NA',
-          'NA',
-          'NA'
-        ].join(','));
-      } else {
+      if (s.trials && s.trials.length > 0) {
+        // Trial-level telemetry (dual n-back)
         for (const t of s.trials) {
           rows.push([
-            s.id,
-            s.timestampIso,
-            s.taskType,
-            s.mode,
-            s.level,
-            s.totalTrials,
-            s.metrics.accuracyPercent,
-            s.metrics.hits,
-            s.metrics.misses,
-            s.metrics.falseAlarms,
-            s.metrics.dPrime ?? 'NA',
-            s.metrics.beta ?? 'NA',
-            s.metrics.meanReactionTimeMs ?? 'NA',
-            s.metrics.aospanAbsoluteScore ?? 'NA',
-            s.durationSeconds,
+            ...prefix(s),
             t.trialIndex,
             t.reactionTimeMs ?? 'NA',
             t.isVisualMatch ? 1 : 0,
@@ -280,9 +264,27 @@ export class StorageService {
             t.lureType,
             t.pressedVisual ? 1 : 0,
             t.pressedAudio ? 1 : 0,
-            t.overallCorrect ? 1 : 0
+            t.overallCorrect ? 1 : 0,
+            ...NA(3)
           ].join(','));
         }
+      } else if (s.spanTrials && s.spanTrials.length > 0) {
+        // Recall-level detail (digit span, Corsi). Sequences are pipe-joined so
+        // each stays inside a single CSV field.
+        for (const t of s.spanTrials) {
+          rows.push([
+            ...prefix(s),
+            t.trialIndex,
+            'NA',
+            ...NA(5),
+            t.correct ? 1 : 0,
+            t.spanLength,
+            t.target.join('|'),
+            t.recalled.join('|')
+          ].join(','));
+        }
+      } else {
+        rows.push([...prefix(s), ...NA(11)].join(','));
       }
     }
 
@@ -351,7 +353,18 @@ export class StorageService {
           rtStandardDeviationMs: 0,
           maxSpanReached: 6
         },
-        trials: []
+        trials: [],
+        // Illustrative recall trials so the sample telemetry can demonstrate
+        // the serial position chart. Errors cluster in the middle positions,
+        // the shape the literature describes.
+        spanTrials: [
+          { trialIndex: 0, spanLength: 4, target: [3, 8, 1, 5], recalled: [3, 8, 1, 5], correct: true },
+          { trialIndex: 1, spanLength: 5, target: [2, 9, 4, 7, 1], recalled: [2, 9, 6, 7, 1], correct: false },
+          { trialIndex: 2, spanLength: 5, target: [6, 1, 8, 3, 9], recalled: [6, 1, 8, 3, 9], correct: true },
+          { trialIndex: 3, spanLength: 6, target: [4, 7, 2, 9, 5, 8], recalled: [4, 7, 5, 2, 5, 8], correct: false },
+          { trialIndex: 4, spanLength: 6, target: [1, 5, 9, 2, 6, 3], recalled: [1, 5, 9, 4, 6, 3], correct: false },
+          { trialIndex: 5, spanLength: 7, target: [8, 2, 5, 1, 9, 4, 6], recalled: [8, 2, 3, 1, 7, 4, 6], correct: false }
+        ]
       },
       {
         id: crypto.randomUUID(),
@@ -375,7 +388,13 @@ export class StorageService {
           rtStandardDeviationMs: 0,
           maxSpanReached: 5
         },
-        trials: []
+        trials: [],
+        spanTrials: [
+          { trialIndex: 0, spanLength: 4, target: [2, 7, 5, 9], recalled: [2, 7, 5, 9], correct: true },
+          { trialIndex: 1, spanLength: 5, target: [1, 4, 8, 3, 6], recalled: [1, 4, 2, 3, 6], correct: false },
+          { trialIndex: 2, spanLength: 5, target: [9, 3, 6, 2, 7], recalled: [9, 3, 6, 5, 7], correct: false },
+          { trialIndex: 3, spanLength: 6, target: [5, 8, 1, 7, 4, 2], recalled: [5, 8, 4, 7, 4, 2], correct: false }
+        ]
       },
       {
         id: crypto.randomUUID(),

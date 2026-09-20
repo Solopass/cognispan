@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { storageService } from '../../services/storageService';
+import { calculateSerialPositionErrors } from '../../services/psychometrics';
+import { calculateZScore } from '../../types/norms';
 import { Download, TrendingUp, Activity, Database, Trash2, ShieldAlert, Sparkles } from 'lucide-react';
 
 export const AnalyticsView: React.FC = () => {
@@ -27,23 +29,35 @@ export const AnalyticsView: React.FC = () => {
     ? (nBackSessions.reduce((acc, s) => acc + s.metrics.dPrime, 0) / nBackSessions.length).toFixed(2)
     : '0.00';
 
-  // Cognitive Domain Scores (relative to population mean = 100)
+  // Cognitive Domain Scores (relative to population mean = 100).
+  // Standardized through the shared norm table rather than repeating its
+  // constants here, so the two cannot drift apart.
+  const domainIndex = (raw: number, normKey: string) =>
+    Math.round(100 + calculateZScore(raw, normKey) * 15);
+
   const domainScores = [
-    { name: 'Executive Updating', value: Math.round(100 + ((profile.baselines.dualNBackLevel - 2.6) / 0.8) * 15), baseline: 'Jaeggi (2.6 N)' },
-    { name: 'Verbal / Echoic', value: Math.round(100 + ((profile.baselines.digitSpanForward - 7.0) / 1.5) * 15), baseline: 'WAIS-IV (7.0 Digits)' },
-    { name: 'Visuospatial', value: Math.round(100 + ((profile.baselines.corsiSpanForward - 6.2) / 1.1) * 15), baseline: 'Kessels (6.2 Blocks)' },
-    { name: 'Complex Span', value: Math.round(100 + ((profile.baselines.aospanAbsolute - 43.3) / 14.8) * 15), baseline: 'Unsworth (43.3 Pts)' },
+    { name: 'Executive Updating', value: domainIndex(profile.baselines.dualNBackLevel, 'dual_n_back_level'), baseline: 'Jaeggi (2.6 N)' },
+    { name: 'Verbal / Echoic', value: domainIndex(profile.baselines.digitSpanForward, 'digit_span_forward'), baseline: 'WAIS-IV (7.0 Digits)' },
+    { name: 'Visuospatial', value: domainIndex(profile.baselines.corsiSpanForward, 'corsi_blocks_forward'), baseline: 'Kessels (6.2 Blocks)' },
+    { name: 'Complex Span', value: domainIndex(profile.baselines.aospanAbsolute, 'operation_span_absolute'), baseline: 'Unsworth (43.3 Pts)' },
   ];
 
-  // Serial Position mock curve (shows typical U-shape curve with user data)
-  const serialCurve = [
-    { pos: 1, errorRate: 8, label: 'Position 1 (Primacy)' },
-    { pos: 2, errorRate: 14, label: 'Position 2' },
-    { pos: 3, errorRate: 26, label: 'Position 3 (Asymptote)' },
-    { pos: 4, errorRate: 31, label: 'Position 4 (Interference)' },
-    { pos: 5, errorRate: 28, label: 'Position 5' },
-    { pos: 6, errorRate: 11, label: 'Position 6 (Recency)' },
-  ];
+  // Serial position curve, computed from the recall trials actually recorded
+  // by the span tasks. Trials of different lengths are pooled by position.
+  const spanTrials = sessions.flatMap(s => s.spanTrials ?? []);
+  const serialPositions = calculateSerialPositionErrors(spanTrials);
+  const serialCurve = serialPositions.map((p, i) => ({
+    pos: p.position,
+    errorRate: Math.round(p.errorRate * 100),
+    label:
+      i === 0
+        ? `Position ${p.position} (Primacy)`
+        : i === serialPositions.length - 1
+        ? `Position ${p.position} (Recency)`
+        : `Position ${p.position}`
+  }));
+  const serialTrialCount = spanTrials.length;
+  const peakSerialError = serialCurve.reduce((m, c) => Math.max(m, c.errorRate), 0);
 
   const handleResetData = () => {
     storageService.clearAllData();
@@ -159,28 +173,45 @@ export const AnalyticsView: React.FC = () => {
         {/* Serial Position Error Curve */}
         <div className="bg-surface border border-surface-border rounded-2xl p-6 shadow-xl">
           <h3 className="text-base font-bold text-zinc-100 mb-1">Serial Position Error Diagnostic</h3>
-          <p className="text-xs text-zinc-400 font-mono mb-6">Primacy effect vs Recency effect error frequency</p>
+          <p className="text-xs text-zinc-400 font-mono mb-6">
+            {serialTrialCount > 0
+              ? `Your recall errors by position, pooled over ${serialTrialCount} span ${serialTrialCount === 1 ? 'trial' : 'trials'}`
+              : 'Primacy effect vs Recency effect error frequency'}
+          </p>
 
-          <div className="h-44 flex items-end justify-between gap-3 px-2 border-b border-surface-border pb-2">
-            {serialCurve.map(sc => {
-              const barHeight = Math.max(15, (sc.errorRate / 40) * 140);
-              return (
-                <div key={sc.pos} className="flex-1 flex flex-col items-center group relative">
-                  <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 text-[10px] font-mono py-1 px-2 rounded border border-zinc-700 whitespace-nowrap pointer-events-none z-20">
-                    {sc.label}: {sc.errorRate}% error
+          {serialCurve.length === 0 ? (
+            <div className="h-44 flex flex-col items-center justify-center text-center px-4 text-zinc-500 text-xs font-mono border-b border-surface-border">
+              <Activity className="w-6 h-6 mb-3 text-zinc-600" />
+              <span>No span trials recorded yet.</span>
+              <span className="mt-1 text-zinc-600">
+                Run Digit Span or Corsi Blocks to build your curve.
+              </span>
+            </div>
+          ) : (
+            <div className="h-44 flex items-end justify-between gap-3 px-2 border-b border-surface-border pb-2">
+              {serialCurve.map(sc => {
+                const scale = Math.max(40, peakSerialError);
+                const barHeight = Math.max(15, (sc.errorRate / scale) * 140);
+                return (
+                  <div key={sc.pos} className="flex-1 flex flex-col items-center group relative">
+                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-zinc-800 text-[10px] font-mono py-1 px-2 rounded border border-zinc-700 whitespace-nowrap pointer-events-none z-20">
+                      {sc.label}: {sc.errorRate}% error
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-400 mb-1">{sc.errorRate}%</span>
+                    <div
+                      style={{ height: `${barHeight}px` }}
+                      className="w-full rounded-t-md bg-accent-rose/70 group-hover:bg-accent-rose transition-colors"
+                    />
+                    <span className="text-[10px] font-mono text-zinc-500 mt-2">P{sc.pos}</span>
                   </div>
-                  <span className="text-[10px] font-mono text-zinc-400 mb-1">{sc.errorRate}%</span>
-                  <div
-                    style={{ height: `${barHeight}px` }}
-                    className="w-full rounded-t-md bg-accent-rose/70 group-hover:bg-accent-rose transition-colors"
-                  />
-                  <span className="text-[10px] font-mono text-zinc-500 mt-2">P{sc.pos}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
           <span className="text-[10px] font-mono text-zinc-500 block mt-3">
-            Classic U-curve: Low errors at position 1 (Primacy rehearsal) and position 6 (Recency echo).
+            {serialCurve.length === 0
+              ? 'A typical curve dips at the first position (primacy rehearsal) and the last (recency echo), peaking in the middle.'
+              : 'Longer trials contribute to the early positions only, so later positions rest on fewer observations.'}
           </span>
         </div>
       </div>

@@ -154,3 +154,55 @@ describe('calculateSerialPositionErrors', () => {
     expect(res[2].errorRate).toBe(1);
   });
 });
+
+describe('serial position curve over real span trials', () => {
+  // Mirrors how AnalyticsView pools trials: different span lengths together.
+  const trial = (target: number[], recalled: number[]) => ({ target, recalled });
+
+  test('pools trials of different lengths by position', () => {
+    const res = calculateSerialPositionErrors([
+      trial([1, 2, 3], [1, 2, 3]),
+      trial([4, 5, 6, 7], [9, 5, 6, 7])
+    ]);
+    // Position 1 seen twice, one error; position 4 seen once, correct.
+    expect(res).toHaveLength(4);
+    expect(res[0]).toEqual({ position: 1, errorRate: 0.5 });
+    expect(res[3]).toEqual({ position: 4, errorRate: 0 });
+  });
+
+  test('a flawless set of trials produces a flat zero curve', () => {
+    const res = calculateSerialPositionErrors([
+      trial([1, 2, 3], [1, 2, 3]),
+      trial([4, 5, 6], [4, 5, 6])
+    ]);
+    expect(res.every(p => p.errorRate === 0)).toBe(true);
+  });
+
+  test('returns an empty curve when nothing has been recorded', () => {
+    expect(calculateSerialPositionErrors([])).toEqual([]);
+  });
+
+  test('positions are 1-based and contiguous', () => {
+    const res = calculateSerialPositionErrors([trial([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])]);
+    expect(res.map(p => p.position)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  test('an abandoned trial counts its missing positions as errors', () => {
+    const res = calculateSerialPositionErrors([trial([1, 2, 3], [1])]);
+    expect(res[0].errorRate).toBe(0);
+    expect(res[1].errorRate).toBe(1);
+    expect(res[2].errorRate).toBe(1);
+  });
+
+  test('error rates are proportions in [0,1], ready to render as percentages', () => {
+    const res = calculateSerialPositionErrors([
+      trial([1, 2, 3], [9, 9, 9]),
+      trial([1, 2, 3], [1, 2, 3])
+    ]);
+    for (const p of res) {
+      expect(p.errorRate).toBeGreaterThanOrEqual(0);
+      expect(p.errorRate).toBeLessThanOrEqual(1);
+    }
+    expect(res[0].errorRate).toBe(0.5);
+  });
+});
