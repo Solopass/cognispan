@@ -2,7 +2,11 @@
  * Empirical Population Norms from Peer-Reviewed Neuropsychological Literature
  * 
  * References:
- * - WAIS-IV Digit Span: Wechsler, D. (2008). WAIS-IV Administration and Scoring Manual.
+ * - Digit Span: typical adult span lengths from the wider literature, in the
+ *   tradition of the WAIS-IV subtest. WAIS-IV itself publishes age-scaled index
+ *   scores rather than mean raw spans, so these are a reference point rather
+ *   than a lookup from its tables. Wechsler, D. (2008), WAIS-IV Administration
+ *   and Scoring Manual, describes the subtest.
  * - Corsi Blocks: Kessels, R. P., et al. (2000). Neuropsychological Assessment of Visuospatial Memory.
  * - AOSPAN: Unsworth, N., et al. (2005). An automated version of the operation span task.
  * - Dual N-Back: Jaeggi, S. M., et al. (2008). Improving fluid intelligence with training on working memory.
@@ -18,17 +22,17 @@ export const POPULATION_NORMS: Record<string, NormativeDistribution> = {
   digit_span_forward: {
     mean: 7.0,
     sd: 1.5,
-    reference: 'WAIS-IV Standardized Adult Norms'
+    reference: 'Typical adult span (WAIS-IV subtest tradition)'
   },
   digit_span_backward: {
     mean: 5.2,
     sd: 1.2,
-    reference: 'WAIS-IV Standardized Adult Norms'
+    reference: 'Typical adult span (WAIS-IV subtest tradition)'
   },
   digit_span_ascending: {
     mean: 6.1,
     sd: 1.3,
-    reference: 'WAIS-IV Standardized Adult Norms'
+    reference: 'Typical adult span (WAIS-IV subtest tradition)'
   },
   corsi_blocks_forward: {
     mean: 6.2,

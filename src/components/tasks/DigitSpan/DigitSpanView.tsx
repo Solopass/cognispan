@@ -429,7 +429,7 @@ export const DigitSpanView: React.FC<DigitSpanViewProps> = ({
             <div className="p-4 bg-surface-subtle border border-surface-border rounded-xl">
               <span className="text-xs text-zinc-400 block mb-1">Adult Percentile</span>
               <span className="text-3xl font-bold font-mono text-accent-cyan">{percentile}th</span>
-              <span className="text-xs text-zinc-500 block mt-1">WAIS-IV Norms</span>
+              <span className="text-xs text-zinc-500 block mt-1">Typical adult norms</span>
             </div>
           </div>
 

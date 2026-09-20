@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/layout/Header';
+import { PauseOverlay } from './components/layout/PauseOverlay';
 import { Navigation, ActiveTab } from './components/layout/Navigation';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { SandboxView } from './components/dashboard/SandboxView';
@@ -71,6 +72,8 @@ export const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col">
         {/* If user is running an active drill or protocol */}
+        {activeRunningTask && <PauseOverlay />}
+
         {activeRunningTask === 'protocol' && (
           <DailyProtocolRunner onExit={handleExitTask} />
         )}

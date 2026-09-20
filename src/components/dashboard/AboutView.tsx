@@ -131,6 +131,28 @@ export const AboutView: React.FC = () => {
         <p>
           4. <strong>Wechsler, D. (2008)</strong>. <em>Wechsler Adult Intelligence Scale – Fourth Edition (WAIS-IV)</em>. San Antonio, TX: Pearson.
         </p>
+
+        <div className="pt-3 mt-1 border-t border-surface-border space-y-2">
+          <h4 className="font-bold text-zinc-200 text-sm">How to read the percentiles</h4>
+          <p>
+            Percentiles standardize your raw score against a published mean and standard deviation,
+            assuming a normal distribution. They are an orientation, not a clinical result: this is
+            an unsupervised, self-administered app, not a controlled assessment.
+          </p>
+          <p>
+            The complex-span, Corsi and n-back norms come from the distributions reported in the
+            papers above. The <strong>digit-span figures are different</strong>: WAIS-IV publishes
+            age-scaled index scores rather than mean raw span lengths, so the values used here
+            (7.0 &plusmn; 1.5 forward, 5.2 &plusmn; 1.2 backward, 6.1 &plusmn; 1.3 ascending) are
+            typical adult spans from the wider literature, in the tradition the WAIS-IV subtest
+            belongs to. Treat them as a reasonable reference point, not as a WAIS-IV lookup.
+          </p>
+          <p>
+            A percentile is only meaningful when the protocol matches the one behind the norm. That
+            is why the O-Span reports a percentile after the full 15-set assessment and reports a
+            partial-credit score, with no percentile, after a short practice run.
+          </p>
+        </div>
       </div>
     </div>
   );

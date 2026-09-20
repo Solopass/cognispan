@@ -4,6 +4,7 @@ import { calculateSerialPositionErrors } from '../../services/psychometrics';
 import { calculateZScore } from '../../types/norms';
 import { SessionRecord } from '../../types/cognitive';
 import { protocolFromRecordMode } from '../tasks/OperationSpan/ospanProtocol';
+import { Download, TrendingUp, Activity, Database, Trash2, ShieldAlert, Sparkles } from 'lucide-react';
 
 /**
  * O-Span scores from different protocols are not comparable, so a history row
@@ -30,7 +31,6 @@ function describeOSpanSession(s: SessionRecord): string {
 
   return max ? `Score = ${score} / ${max}` : `Score = ${score}`;
 }
-import { Download, TrendingUp, Activity, Database, Trash2, ShieldAlert, Sparkles } from 'lucide-react';
 
 export const AnalyticsView: React.FC = () => {
   const [sessions, setSessions] = useState(storageService.getSessions());
@@ -65,7 +65,7 @@ export const AnalyticsView: React.FC = () => {
 
   const domainScores = [
     { name: 'Executive Updating', value: domainIndex(profile.baselines.dualNBackLevel, 'dual_n_back_level'), baseline: 'Jaeggi (2.6 N)' },
-    { name: 'Verbal / Echoic', value: domainIndex(profile.baselines.digitSpanForward, 'digit_span_forward'), baseline: 'WAIS-IV (7.0 Digits)' },
+    { name: 'Verbal / Echoic', value: domainIndex(profile.baselines.digitSpanForward, 'digit_span_forward'), baseline: 'Typical adult (7.0 digits)' },
     { name: 'Visuospatial', value: domainIndex(profile.baselines.corsiSpanForward, 'corsi_blocks_forward'), baseline: 'Kessels (6.2 Blocks)' },
     { name: 'Complex Span', value: domainIndex(profile.baselines.aospanAbsolute, 'operation_span_absolute'), baseline: 'Unsworth (43.3 Pts)' },
   ];
@@ -157,7 +157,7 @@ export const AnalyticsView: React.FC = () => {
           <span className="text-3xl font-extrabold font-mono text-accent-violet">
             {profile.baselines.digitSpanForward}
           </span>
-          <span className="text-[10px] font-mono text-zinc-500 block mt-1">WAIS-IV Digits</span>
+          <span className="text-[10px] font-mono text-zinc-500 block mt-1">Digit span</span>
         </div>
 
         <div className="p-4 bg-surface border border-surface-border rounded-2xl">
