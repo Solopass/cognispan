@@ -2,6 +2,13 @@ import { describe, expect, test } from 'bun:test';
 import { generateNBackSequence, N_BACK_LETTERS } from '../src/components/tasks/DualNBack/nBackLogic';
 import { generateMathProblem, generateLetterSequence, OSPAN_LETTERS } from '../src/components/tasks/OperationSpan/oSpanLogic';
 import { POPULATION_NORMS, calculateZScore, calculatePercentile } from '../src/types/norms';
+import {
+  OSPAN_PROTOCOLS,
+  ASSESSMENT_SET_SIZES,
+  buildSetSizePlan,
+  maxAbsoluteScore,
+  shuffled
+} from '../src/components/tasks/OperationSpan/ospanProtocol';
 
 describe('generateNBackSequence', () => {
   test('produces the requested trial count (20 + n by default)', () => {
@@ -121,18 +128,73 @@ describe('generateMathProblem', () => {
   });
 });
 
-describe('AOSPAN score scale matches its normative scale', () => {
-  // The administered protocol, mirrored from OSpanView's setSizesPlan.
-  const SET_SIZES_PLAN = [3, 4, 3, 5, 4];
-  const maxAchievable = SET_SIZES_PLAN.reduce((a, b) => a + b, 0);
-
-  test('a flawless run scores at or above the population mean', () => {
-    const norm = POPULATION_NORMS.operation_span_absolute;
-    expect(maxAchievable).toBeGreaterThanOrEqual(norm.mean);
+describe('AOSPAN protocols', () => {
+  test('the full assessment administers three sets each of size 3-7', () => {
+    const plan = buildSetSizePlan('assessment');
+    expect(plan).toHaveLength(15);
+    for (const size of [3, 4, 5, 6, 7]) {
+      expect(plan.filter(n => n === size)).toHaveLength(3);
+    }
   });
 
-  test('a flawless run is not reported as below-average', () => {
-    const z = calculateZScore(maxAchievable, 'operation_span_absolute');
-    expect(calculatePercentile(z)).toBeGreaterThan(50);
+  test('the full assessment totals the 75 letters the norms describe', () => {
+    expect(maxAbsoluteScore(buildSetSizePlan('assessment'))).toBe(75);
+  });
+
+  test('shuffling changes the order but never the set sizes administered', () => {
+    const base = [...ASSESSMENT_SET_SIZES];
+    for (let rep = 0; rep < 200; rep++) {
+      const s = shuffled(ASSESSMENT_SET_SIZES);
+      expect([...s].sort((a, b) => a - b)).toEqual([...base].sort((a, b) => a - b));
+    }
+  });
+
+  test('the short practice protocol is unchanged', () => {
+    expect(buildSetSizePlan('practice')).toEqual([3, 4, 3, 5, 4]);
+  });
+
+  // The regression this guards: an absolute score is the sum of perfectly
+  // recalled set sizes, so it is only comparable to the published norms when
+  // the same 75 items were administered.
+  test('only the norm-referenced protocol reaches the population mean', () => {
+    const norm = POPULATION_NORMS.operation_span_absolute;
+    const assessmentMax = maxAbsoluteScore(buildSetSizePlan('assessment'));
+    const practiceMax = maxAbsoluteScore(buildSetSizePlan('practice'));
+
+    expect(OSPAN_PROTOCOLS.assessment.normReferenced).toBe(true);
+    expect(assessmentMax).toBeGreaterThanOrEqual(norm.mean);
+
+    // The short form cannot reach the mean, which is exactly why it must not
+    // claim a percentile.
+    expect(OSPAN_PROTOCOLS.practice.normReferenced).toBe(false);
+    expect(practiceMax).toBeLessThan(norm.mean);
+  });
+
+  test('a flawless assessment run is reported as well above average', () => {
+    const z = calculateZScore(maxAbsoluteScore(buildSetSizePlan('assessment')), 'operation_span_absolute');
+    expect(calculatePercentile(z)).toBeGreaterThan(95);
+  });
+
+  test('the two protocols write distinguishable session modes', () => {
+    expect(OSPAN_PROTOCOLS.assessment.recordMode).not.toBe(OSPAN_PROTOCOLS.practice.recordMode);
+  });
+});
+
+describe('PCU is scale-free, which is why the short form uses it', () => {
+  const pcu = (setSizes: number[], correctPerSet: number[]) =>
+    correctPerSet.reduce((sum, c, i) => sum + c / setSizes[i], 0) / setSizes.length;
+
+  test('a flawless run scores 1.0 on either protocol', () => {
+    const short = buildSetSizePlan('practice');
+    const full = buildSetSizePlan('assessment');
+    expect(pcu(short, short)).toBeCloseTo(1.0, 10);
+    expect(pcu(full, full)).toBeCloseTo(1.0, 10);
+  });
+
+  test('half-recall scores 0.5 regardless of how many sets were administered', () => {
+    const short = buildSetSizePlan('practice');
+    const full = buildSetSizePlan('assessment');
+    expect(pcu(short, short.map(n => n / 2))).toBeCloseTo(0.5, 10);
+    expect(pcu(full, full.map(n => n / 2))).toBeCloseTo(0.5, 10);
   });
 });

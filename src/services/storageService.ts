@@ -123,6 +123,14 @@ export class StorageService {
     const sessions = this.getSessions();
     const isFirstOfTask = !sessions.some(s => s.taskType === session.taskType && s.id !== session.id);
 
+    // Several baselines only accept one mode of a task (forward span, the full
+    // O-Span protocol). For those, "first" has to mean the first session in
+    // that mode, otherwise a session in another mode flips the flag and the
+    // real first measurement is discarded whenever it falls below the seeded
+    // default.
+    const isFirstInMode = (mode: string) =>
+      !sessions.some(s => s.taskType === session.taskType && s.mode === mode && s.id !== session.id);
+
     // Update specific baselines: initialize directly if first time, or update if improved
     switch (session.taskType) {
       case 'dual_n_back':
@@ -132,33 +140,38 @@ export class StorageService {
         break;
       case 'digit_span':
         if (session.mode === 'forward') {
-          if (isFirstOfTask || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanForward) {
+          if (isFirstInMode('forward') || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanForward) {
             profile.baselines.digitSpanForward = session.metrics.maxSpanReached!;
           }
         } else if (session.mode === 'backward') {
-          if (isFirstOfTask || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanBackward) {
+          if (isFirstInMode('backward') || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanBackward) {
             profile.baselines.digitSpanBackward = session.metrics.maxSpanReached!;
           }
         } else if (session.mode === 'ascending') {
-          if (isFirstOfTask || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanAscending) {
+          if (isFirstInMode('ascending') || (session.metrics.maxSpanReached ?? 0) > profile.baselines.digitSpanAscending) {
             profile.baselines.digitSpanAscending = session.metrics.maxSpanReached!;
           }
         }
         break;
       case 'corsi_blocks':
         if (session.mode === 'forward') {
-          if (isFirstOfTask || (session.metrics.maxSpanReached ?? 0) > profile.baselines.corsiSpanForward) {
+          if (isFirstInMode('forward') || (session.metrics.maxSpanReached ?? 0) > profile.baselines.corsiSpanForward) {
             profile.baselines.corsiSpanForward = session.metrics.maxSpanReached!;
           }
         } else if (session.mode === 'backward') {
-          if (isFirstOfTask || (session.metrics.maxSpanReached ?? 0) > profile.baselines.corsiSpanBackward) {
+          if (isFirstInMode('backward') || (session.metrics.maxSpanReached ?? 0) > profile.baselines.corsiSpanBackward) {
             profile.baselines.corsiSpanBackward = session.metrics.maxSpanReached!;
           }
         }
         break;
       case 'operation_span':
-        if (isFirstOfTask || (session.metrics.aospanAbsoluteScore ?? 0) > profile.baselines.aospanAbsolute) {
-          profile.baselines.aospanAbsolute = session.metrics.aospanAbsoluteScore!;
+        // Only the full 15-set protocol yields an absolute score on the 0-75
+        // scale the norms describe. Short practice runs have a lower ceiling,
+        // so letting them set the baseline would understate the composite.
+        if (session.mode === 'automated_complex_span') {
+          if (isFirstInMode('automated_complex_span') || (session.metrics.aospanAbsoluteScore ?? 0) > profile.baselines.aospanAbsolute) {
+            profile.baselines.aospanAbsolute = session.metrics.aospanAbsoluteScore!;
+          }
         }
         break;
     }

@@ -4,15 +4,18 @@ CogniSpan is a scientific-grade, local-first progressive web application built t
 
 ## Project status
 
-> **Working prototype, paused.** Last worked on 2026-09-08. Built on the previous PC and migrated 2026-09-14.
+> **Working, verified end to end.** Built on the previous PC (last worked on 2026-09-08), migrated 2026-09-14, verified and fixed 2026-09-20.
 
 | | |
 |---|---|
-| **Works** | All 5 tasks and the daily protocol UI are implemented. Data stays in the browser (IndexedDB/LocalStorage) with CSV/JSON export. |
-| **Checked on the new PC (2026-09-14)** | ✅ `bun run build` passes (TypeScript + Vite, 2 s). The app was **not** opened and played through. |
-| **Not done / unknown** | No automated tests. The psychometric scoring (d′, WAIS-IV norms, AOSPAN thresholds) hasn't been checked against the published references. No PWA install or offline check. |
+| **Works** | All 5 tasks and the daily protocol UI. Data stays in the browser (IndexedDB/LocalStorage) with CSV/JSON export. |
+| **Verified (2026-09-20)** | ✅ `bun run build` and 41 tests pass. All 5 tasks played through end to end and their reported scores recomputed by hand: Digit Span span 8 → 74.8th, Corsi span 7 → 76.6th, Dual N-Back d′ 4.04 with the staircase advancing, Keep Track 3/3, O-Span 75/75 → 98.4th. |
+| **Scoring** | The psychometrics are correct as written and now covered by tests against the published sources: probit quantiles, `erf`, Hautus (1995) log-linear d′, criterion C, Grier A′/B″, percentiles, and the CWMI composite scale. |
+| **Fixed (2026-09-20)** | The O-Span administered 5 sets (19 letters) but scored against the Unsworth 75-letter norms, so a flawless run reported the 5th percentile. It now offers a **Full Assessment** (15 sets, 75 letters, norm-referenced) and a **Short Practice** (5 sets, scored by partial-credit unit, no percentile, excluded from the composite). Two related bugs went with it: the saved O-Span record was short by the final set, and a session in one mode could stop the first session in another mode from setting its baseline. |
+| **Known limitation** | The timing engine pauses on `visibilitychange`, which is correct for a timed experiment but the UI gives no sign it has paused — a backgrounded tab just appears to hang mid-trial. |
+| **Not done / unknown** | The norms are plausible but attribution is loose: WAIS-IV publishes scaled scores, not raw span means, so `digit_span_*` is a literature-typical figure rather than a WAIS-IV table value. No PWA install or offline check. No component/DOM tests. |
 | **Needs** | Node 18+ or Bun. No API keys, no backend. |
-| **Next step** | Play through each task once and check the scores look sane, then decide whether it's worth publishing (clean enough to go public). |
+| **Next step** | Decide whether it's worth publishing (clean enough to go public). |
 
 `bun install && bun run dev` works in place of the npm commands below.
 

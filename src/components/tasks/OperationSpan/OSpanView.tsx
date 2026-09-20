@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { generateMathProblem, generateLetterSequence, MathProblem, OSPAN_LETTERS } from './oSpanLogic';
+import {
+  OSPAN_PROTOCOLS,
+  OSpanProtocolId,
+  buildSetSizePlan,
+  maxAbsoluteScore
+} from './ospanProtocol';
 import { timingEngine } from '../../../services/timingEngine';
 import { audioEngine } from '../../../services/audioEngine';
 import { storageService } from '../../../services/storageService';
@@ -46,7 +52,20 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
   const sessionStartTimeRef = useRef<number>(0);
   const lastSessionRecordRef = useRef<SessionRecord | null>(null);
 
-  const setSizesPlan = [3, 4, 3, 5, 4];
+  // Which protocol this run administers. The plan is rebuilt per run, because
+  // the full assessment shuffles its set sizes. The ref is what the running
+  // trial logic reads, so it never sees a stale plan mid-run.
+  const [protocolId, setProtocolId] = useState<OSpanProtocolId>('assessment');
+  const setSizesPlanRef = useRef<number[]>(buildSetSizePlan('assessment'));
+  const setSizesPlan = setSizesPlanRef.current;
+  const runProtocolRef = useRef<OSpanProtocolId>('assessment');
+
+  // The last set's score is submitted and the session finished in the same
+  // tick, so `finishAospan` cannot read the score off React state - it would
+  // still hold the pre-update value and the saved record would be short by the
+  // final set. These refs carry the authoritative running totals.
+  const absoluteScoreRef = useRef<number>(0);
+  const pcuTotalEarnedRef = useRef<number>(0);
 
   const clearAllTimers = () => {
     activeTimersRef.current.forEach(cancel => cancel());
@@ -120,6 +139,10 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
     setSpeedErrorCount(0);
     setAbsoluteScore(0);
     setPcuTotalEarned(0);
+    absoluteScoreRef.current = 0;
+    pcuTotalEarnedRef.current = 0;
+    setSizesPlanRef.current = buildSetSizePlan(protocolId);
+    runProtocolRef.current = protocolId;
     sessionStartTimeRef.current = performance.now();
 
     setCurrentSetIndex(0);
@@ -127,12 +150,12 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
   };
 
   const startSet = (setIdx: number) => {
-    if (setIdx >= setSizesPlan.length) {
+    if (setIdx >= setSizesPlanRef.current.length) {
       finishAospan();
       return;
     }
 
-    const setSize = setSizesPlan[setIdx];
+    const setSize = setSizesPlanRef.current[setIdx];
     setCurrentSetSize(setSize);
     currentSetLettersRef.current = generateLetterSequence(setSize);
     setCurrentItemInSet(0);
@@ -242,11 +265,13 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
     const is100Percent = correctInThisSet === target.length;
     if (is100Percent) {
       audioEngine.playFeedback('hit');
+      absoluteScoreRef.current += target.length;
       setAbsoluteScore(prev => prev + target.length);
     } else {
       audioEngine.playFeedback('miss');
     }
 
+    pcuTotalEarnedRef.current += correctInThisSet / target.length;
     setPcuTotalEarned(prev => prev + (correctInThisSet / target.length));
 
     const nextIdx = currentSetIndex + 1;
@@ -304,16 +329,18 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
 
     const durationSeconds = Math.round((performance.now() - sessionStartTimeRef.current) / 1000);
     const mathAccuracy = mathTotalCount > 0 ? (mathCorrectCount / mathTotalCount) * 100 : 0;
-    const pcuScore = setSizesPlan.length > 0 ? pcuTotalEarned / setSizesPlan.length : 0;
+    const setsAdministeredNow = setSizesPlanRef.current.length;
+    const finalAbsolute = absoluteScoreRef.current;
+    const pcuScore = setsAdministeredNow > 0 ? pcuTotalEarnedRef.current / setsAdministeredNow : 0;
 
     const record: SessionRecord = {
       id: crypto.randomUUID(),
       timestampIso: new Date().toISOString(),
       epochMs: Date.now(),
       taskType: 'operation_span',
-      mode: 'automated_complex_span',
-      level: absoluteScore,
-      totalTrials: setSizesPlan.length,
+      mode: OSPAN_PROTOCOLS[runProtocolRef.current].recordMode,
+      level: finalAbsolute,
+      totalTrials: setSizesPlanRef.current.length,
       durationSeconds,
       metrics: {
         accuracyPercent: Number(mathAccuracy.toFixed(1)),
@@ -326,7 +353,7 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
         meanReactionTimeMs: mathDeadlineMs,
         medianReactionTimeMs: mathDeadlineMs,
         rtStandardDeviationMs: 0,
-        aospanAbsoluteScore: absoluteScore,
+        aospanAbsoluteScore: finalAbsolute,
         aospanPcuScore: Number(pcuScore.toFixed(2)),
         mathAccuracyPercent: Number(mathAccuracy.toFixed(1))
       },
@@ -347,8 +374,18 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
 
   const mathAccuracy = mathTotalCount > 0 ? (mathCorrectCount / mathTotalCount) * 100 : 0;
   const isProtocolValid = mathAccuracy >= 85;
+
+  // The run that produced the score on screen, which may differ from the
+  // protocol currently selected for the next run.
+  const scoredProtocol = OSPAN_PROTOCOLS[runProtocolRef.current];
+  const setsAdministered = setSizesPlanRef.current.length;
+  const maxScore = maxAbsoluteScore(setSizesPlanRef.current);
+  const pcuScore = setsAdministered > 0 ? pcuTotalEarned / setsAdministered : 0;
+
+  // Only the full protocol is comparable to the Unsworth norms; a short run
+  // has a lower ceiling and gets no percentile.
   const zScore = calculateZScore(absoluteScore, 'operation_span_absolute');
-  const percentile = calculatePercentile(zScore);
+  const percentile = scoredProtocol.normReferenced ? calculatePercentile(zScore) : null;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center">
@@ -379,6 +416,37 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
           <p className="text-zinc-400 text-sm mb-6 leading-relaxed">
             The gold standard for Working Memory Capacity. Interleaves rapid arithmetic verification with letter sequence retention.
           </p>
+
+          <div className="w-full mb-6">
+            <span className="text-xs font-mono uppercase tracking-wider text-zinc-500 block mb-2 text-left">
+              Protocol
+            </span>
+            <div className="space-y-2">
+              {(Object.keys(OSPAN_PROTOCOLS) as OSpanProtocolId[]).map(id => {
+                const p = OSPAN_PROTOCOLS[id];
+                const selected = protocolId === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setProtocolId(id)}
+                    className={`w-full p-3 rounded-xl border text-left transition-all ${
+                      selected
+                        ? 'bg-accent-amber/10 border-accent-amber text-accent-amber'
+                        : 'bg-surface-subtle border-surface-border text-zinc-300 hover:border-zinc-500'
+                    }`}
+                  >
+                    <span className="flex items-center justify-between text-xs font-mono font-bold">
+                      {p.label}
+                      <span className="text-zinc-500">
+                        {maxAbsoluteScore(id === 'assessment' ? buildSetSizePlan('assessment') : buildSetSizePlan('practice'))} letters · ~{p.approxMinutes} min
+                      </span>
+                    </span>
+                    <span className="block text-[11px] text-zinc-400 mt-1 leading-relaxed">{p.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="p-4 bg-surface-subtle border border-surface-border rounded-xl text-left text-xs text-zinc-400 mb-8 w-full space-y-2">
             <p>• <strong>Phase 1: Speed Calibration</strong>. 10 simple math equations to determine your personal speed baseline.</p>
@@ -565,13 +633,20 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
           <div className="w-16 h-16 rounded-full bg-accent-amber/10 border border-accent-amber/30 flex items-center justify-center text-accent-amber mb-6">
             <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold mb-1">O-Span Assessment Complete</h2>
-          <p className="text-zinc-400 text-xs font-mono mb-6">Automated Operation Span</p>
+          <h2 className="text-2xl font-bold mb-1">
+            {scoredProtocol.normReferenced ? 'O-Span Assessment Complete' : 'O-Span Practice Complete'}
+          </h2>
+          <p className="text-zinc-400 text-xs font-mono mb-6">
+            {scoredProtocol.label} · {setsAdministered} sets · {maxScore} letters
+          </p>
 
           <div className="grid grid-cols-3 gap-3 w-full mb-6">
             <div className="p-3 bg-surface-subtle border border-surface-border rounded-xl">
               <span className="text-xs text-zinc-400 block mb-1">Absolute Score</span>
-              <span className="text-xl font-bold font-mono text-accent-amber">{absoluteScore}</span>
+              <span className="text-xl font-bold font-mono text-accent-amber">
+                {absoluteScore}
+                <span className="text-xs text-zinc-500"> / {maxScore}</span>
+              </span>
             </div>
             <div className="p-3 bg-surface-subtle border border-surface-border rounded-xl">
               <span className="text-xs text-zinc-400 block mb-1">Math Accuracy</span>
@@ -579,11 +654,28 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
                 {mathAccuracy.toFixed(1)}%
               </span>
             </div>
-            <div className="p-3 bg-surface-subtle border border-surface-border rounded-xl">
-              <span className="text-xs text-zinc-400 block mb-1">Percentile</span>
-              <span className="text-xl font-bold font-mono text-accent-cyan">{percentile}th</span>
-            </div>
+            {scoredProtocol.normReferenced ? (
+              <div className="p-3 bg-surface-subtle border border-surface-border rounded-xl">
+                <span className="text-xs text-zinc-400 block mb-1">Percentile</span>
+                <span className="text-xl font-bold font-mono text-accent-cyan">{percentile}th</span>
+              </div>
+            ) : (
+              <div className="p-3 bg-surface-subtle border border-surface-border rounded-xl">
+                <span className="text-xs text-zinc-400 block mb-1">Partial Credit</span>
+                <span className="text-xl font-bold font-mono text-accent-cyan">{pcuScore.toFixed(2)}</span>
+              </div>
+            )}
           </div>
+
+          {!scoredProtocol.normReferenced && (
+            <div className="w-full p-4 bg-surface-subtle border border-surface-border text-zinc-400 rounded-xl text-xs text-left mb-6 leading-relaxed">
+              Practice runs are scored by <strong className="text-zinc-200">partial-credit unit</strong> — the mean
+              proportion of each set recalled correctly, so runs stay comparable to each other. No percentile is
+              shown: the published norms describe the full 75-letter protocol, and a short run cannot be read
+              against them. Run the <strong className="text-zinc-200">Full Assessment</strong> for a norm-referenced
+              score that counts toward your WMC composite.
+            </div>
+          )}
 
           {!isProtocolValid && (
             <div className="w-full p-4 bg-accent-rose/10 border border-accent-rose/30 text-accent-rose rounded-xl text-xs text-left mb-6 flex items-start gap-3">
