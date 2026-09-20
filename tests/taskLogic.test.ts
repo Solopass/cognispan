@@ -7,6 +7,8 @@ import {
   ASSESSMENT_SET_SIZES,
   buildSetSizePlan,
   maxAbsoluteScore,
+  maxAbsoluteScoreForProtocol,
+  protocolFromRecordMode,
   shuffled
 } from '../src/components/tasks/OperationSpan/ospanProtocol';
 
@@ -196,5 +198,27 @@ describe('PCU is scale-free, which is why the short form uses it', () => {
     const full = buildSetSizePlan('assessment');
     expect(pcu(short, short.map(n => n / 2))).toBeCloseTo(0.5, 10);
     expect(pcu(full, full.map(n => n / 2))).toBeCloseTo(0.5, 10);
+  });
+});
+
+describe('recovering a protocol from a stored session', () => {
+  test('round-trips every protocol through its record mode', () => {
+    for (const id of Object.keys(OSPAN_PROTOCOLS) as (keyof typeof OSPAN_PROTOCOLS)[]) {
+      const p = OSPAN_PROTOCOLS[id];
+      expect(protocolFromRecordMode(p.recordMode)?.id).toBe(p.id);
+    }
+  });
+
+  test('returns null for a mode from another task, rather than guessing', () => {
+    expect(protocolFromRecordMode('forward')).toBeNull();
+    expect(protocolFromRecordMode('cross_modal_voice')).toBeNull();
+    expect(protocolFromRecordMode('')).toBeNull();
+  });
+
+  test('each protocol reports the ceiling its own plan reaches', () => {
+    expect(maxAbsoluteScoreForProtocol('assessment')).toBe(75);
+    expect(maxAbsoluteScoreForProtocol('practice')).toBe(19);
+    expect(maxAbsoluteScoreForProtocol('assessment')).toBe(maxAbsoluteScore(buildSetSizePlan('assessment')));
+    expect(maxAbsoluteScoreForProtocol('practice')).toBe(maxAbsoluteScore(buildSetSizePlan('practice')));
   });
 });

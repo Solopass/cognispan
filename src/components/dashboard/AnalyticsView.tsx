@@ -2,6 +2,34 @@ import React, { useState } from 'react';
 import { storageService } from '../../services/storageService';
 import { calculateSerialPositionErrors } from '../../services/psychometrics';
 import { calculateZScore } from '../../types/norms';
+import { SessionRecord } from '../../types/cognitive';
+import { protocolFromRecordMode } from '../tasks/OperationSpan/ospanProtocol';
+
+/**
+ * O-Span scores from different protocols are not comparable, so a history row
+ * has to say which one it came from. The full assessment reports its absolute
+ * score against the letters administered; a short practice run reports its
+ * partial-credit unit, which is the scale-free measure and carries no
+ * percentile claim.
+ */
+function describeOSpanSession(s: SessionRecord): string {
+  const protocol = protocolFromRecordMode(s.mode);
+  const score = s.metrics.aospanAbsoluteScore ?? s.level;
+
+  if (protocol && !protocol.normReferenced) {
+    const pcu = s.metrics.aospanPcuScore;
+    return pcu !== undefined
+      ? `PCU = ${pcu.toFixed(2)} (practice)`
+      : `Score = ${score} (practice)`;
+  }
+
+  // Runs recorded before the protocol split stored no ceiling, and their set
+  // plan is not recoverable. Show the bare score rather than pairing it with a
+  // ceiling the run may never have had.
+  const max = s.metrics.aospanMaxScore;
+
+  return max ? `Score = ${score} / ${max}` : `Score = ${score}`;
+}
 import { Download, TrendingUp, Activity, Database, Trash2, ShieldAlert, Sparkles } from 'lucide-react';
 
 export const AnalyticsView: React.FC = () => {
@@ -324,7 +352,7 @@ export const AnalyticsView: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 text-zinc-400">
                       {s.taskType === 'dual_n_back' && `d' = ${s.metrics.dPrime}`}
-                      {s.taskType === 'operation_span' && `Score = ${s.metrics.aospanAbsoluteScore ?? s.level}`}
+                      {s.taskType === 'operation_span' && describeOSpanSession(s)}
                       {s.taskType === 'digit_span' && `${s.mode} mode`}
                       {s.taskType === 'corsi_blocks' && `${s.mode} spatial`}
                       {s.taskType === 'keep_track' && `${s.level} categories`}

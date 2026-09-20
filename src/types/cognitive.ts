@@ -77,6 +77,8 @@ export interface SessionMetrics {
   
   // Task specific metrics
   aospanAbsoluteScore?: number;
+  /** Letters administered in that run, i.e. the highest score it could reach. */
+  aospanMaxScore?: number;
   aospanPcuScore?: number;
   mathAccuracyPercent?: number;
   maxSpanReached?: number;

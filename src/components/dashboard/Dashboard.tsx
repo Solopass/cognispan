@@ -1,6 +1,7 @@
 import React from 'react';
 import { TaskType, UserCognitiveProfile } from '../../types/cognitive';
 import { Play, Sparkles, Brain, Clock, Grid, Award, Layers, Calculator, ChevronRight } from 'lucide-react';
+import { maxAbsoluteScoreForProtocol } from '../tasks/OperationSpan/ospanProtocol';
 
 interface DashboardProps {
   profile: UserCognitiveProfile;
@@ -54,7 +55,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       title: 'Automated O-Span',
       sub: 'Complex Working Memory Under Speed-Gated Load',
       bestLabel: 'Absolute Score',
-      bestValue: `${profile.baselines.aospanAbsolute} pts`,
+      // The baseline only ever comes from the full assessment, so show it
+      // against that protocol's ceiling; a bare number hides the scale.
+      bestValue: `${profile.baselines.aospanAbsolute} / ${maxAbsoluteScoreForProtocol('assessment')} pts`,
       color: 'border-accent-amber/30 text-accent-amber',
       icon: <Calculator className="w-5 h-5" />
     },

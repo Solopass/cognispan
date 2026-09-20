@@ -75,3 +75,16 @@ export function buildSetSizePlan(protocol: OSpanProtocolId): number[] {
     ? shuffled(ASSESSMENT_SET_SIZES)
     : [...PRACTICE_SET_SIZES];
 }
+
+/** The highest absolute score a run of this protocol can reach. */
+export function maxAbsoluteScoreForProtocol(protocol: OSpanProtocolId): number {
+  return maxAbsoluteScore(protocol === 'assessment' ? ASSESSMENT_SET_SIZES : PRACTICE_SET_SIZES);
+}
+
+/**
+ * Recovers the protocol from a stored session's `mode`, so history can say
+ * which one produced a score instead of listing incomparable numbers together.
+ */
+export function protocolFromRecordMode(mode: string): OSpanProtocol | null {
+  return Object.values(OSPAN_PROTOCOLS).find(p => p.recordMode === mode) ?? null;
+}

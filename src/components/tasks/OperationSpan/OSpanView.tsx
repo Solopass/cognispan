@@ -354,6 +354,7 @@ export const OSpanView: React.FC<OSpanViewProps> = ({ onComplete, onExit }) => {
         medianReactionTimeMs: mathDeadlineMs,
         rtStandardDeviationMs: 0,
         aospanAbsoluteScore: finalAbsolute,
+        aospanMaxScore: maxAbsoluteScore(setSizesPlanRef.current),
         aospanPcuScore: Number(pcuScore.toFixed(2)),
         mathAccuracyPercent: Number(mathAccuracy.toFixed(1))
       },
