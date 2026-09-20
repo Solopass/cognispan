@@ -37,6 +37,23 @@ npm run dev
 ```
 Then open [http://localhost:3000](http://localhost:3000) in your web browser.
 
+### 3. Run the tests
+```bash
+bun test
+```
+Covers the psychometrics against the sources they cite (probit quantiles, `erf`,
+Hautus log-linear $d'$, criterion $C$, Grier $A'$/$B''$, percentiles, the composite
+scale, serial position pooling) and the task logic (n-back sequence invariants,
+AOSPAN protocols and letter sets, the math generator, the timing clock).
+
+### 4. Build for production
+```bash
+npm run build && npm run preview
+```
+The service worker registers in production builds only — in dev it would sit in
+front of Vite's module graph and serve stale modules through HMR. To check offline
+support, load the preview once, then reload with the network disabled.
+
 ---
 
 ## 5 Validated Cognitive Tasks
@@ -47,11 +64,13 @@ Then open [http://localhost:3000](http://localhost:3000) in your web browser.
    - Controls: Key `A` for Visual Match, Key `L` for Audio Match (or on-screen pads).
    - Psychometrics: Real-time Signal Detection sensitivity ($d'$) and response bias ($\beta$) with Hautus log-linear correction.
 
-2. **WAIS-IV Standardized Digit Span**
+2. **Digit Span** (modelled on the WAIS-IV subtest)
    - Pure phonological capacity and executive sorting.
    - Forward, Backward, and Ascending (numerical sorting) modes.
    - Cadence: Exactly 1 digit per second with monotone audio synthesis.
-   - Mapped against published WAIS-IV adult normative distributions.
+   - Scored against typical adult span lengths from the literature. WAIS-IV itself
+     publishes age-scaled index scores rather than mean raw spans, so the percentile
+     is a reference point, not a WAIS-IV table lookup — see Science & Manual in the app.
 
 3. **Corsi Block-Tapping (Visuospatial Sketchpad)**
    - Kessels et al. (2000) standardized 9-block irregular geometry (eliminates straight-line heuristic chunking).
@@ -63,6 +82,15 @@ Then open [http://localhost:3000](http://localhost:3000) in your web browser.
    - Phase 1: Individual arithmetic baseline calibration ($T_{\text{deadline}} = M + 2.5 \times SD$).
    - Phase 2: Speed-gated math verification interleaved with serial letter memorization.
    - Enforces $\ge 85\%$ math accuracy requirement to ensure participants don't abandon processing.
+   - Two protocols, because an absolute score only means something against the
+     protocol that produced it:
+     - **Full Assessment** — set sizes 3–7, three sets of each, 75 letters, shuffled.
+       This is the administration behind the Unsworth et al. (2005) norms, so it is
+       the one that reports a percentile and feeds the WMC composite. ~18 minutes.
+     - **Short Practice** — five sets, 19 letters, scored by *partial-credit unit*
+       (the mean proportion of each set recalled). PCU is a proportion and so stays
+       comparable across runs on a short form; it reports no percentile and is kept
+       out of the composite. ~4 minutes.
 
 5. **Keep Track Task (Miyake et al., 2000 Updating)**
    - Rapid word stream across 6 distinct semantic categories.
@@ -76,9 +104,19 @@ Then open [http://localhost:3000](http://localhost:3000) in your web browser.
 - **Hardware Abstraction Layer (HAL)**:
   - `requestAnimationFrame` + `performance.now()` loop eliminates JavaScript event-loop jitter.
   - Native Web Audio API synthesis for $0.0\text{ms}$ latency audio cues.
+  - The clock stops while the tab is hidden, so a backgrounded trial is suspended
+    rather than silently running on without you. Coming back shows a paused overlay
+    and counts three seconds in, so no stimulus fires the instant you refocus.
+- **Serial Position Diagnostic**: Recall errors by position, pooled across every
+  recorded span trial, for reading primacy against recency. Computed from your own
+  trials; with no data it says so rather than drawing a curve.
 - **Local-First Data Sovereignty**:
   - 100% private, client-side persistence in IndexedDB / LocalStorage.
-  - One-click exports to tidy CSV (one row per trial for Python/R analysis) and raw JSON.
+  - One-click exports to tidy CSV and raw JSON. The CSV carries one row per trial:
+    per-stimulus telemetry for the n-back, and `span_length` / `target_sequence` /
+    `recalled_sequence` for the span tasks, so a serial position analysis can be
+    done in Python or R straight from the export.
+  - Works offline after the first load (service worker; production builds only).
 - **Accessibility & Ergonomics**:
   - Distraction-free OLED dark laboratory theme (`#09090b`).
   - Full split-hand keyboard navigation (`A`, `L`, `1`-`9`, `Enter`, `Backspace`, `Esc`).
