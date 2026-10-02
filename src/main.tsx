@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // in front of Vite's module graph and serve stale modules through HMR.
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
       // An unavailable worker (private window, blocked storage, insecure
       // origin) costs offline use only; the app itself still runs.
     });

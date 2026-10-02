@@ -18,13 +18,13 @@
  */
 
 const CACHE_VERSION = 'cognispan-v1';
-const SHELL_URL = '/index.html';
+const SHELL_URL = './index.html';
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches
       .open(CACHE_VERSION)
-      .then(cache => cache.addAll(['/', SHELL_URL, '/manifest.json', '/icon.svg']))
+      .then(cache => cache.addAll(['./', SHELL_URL, './manifest.json', './icon.svg']))
       // A failure here (e.g. one asset 404s) must not leave the app without a
       // worker; the runtime handler will fill the cache instead.
       .catch(() => undefined)
@@ -57,7 +57,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_VERSION).then(cache => cache.put(SHELL_URL, copy));
           return response;
         })
-        .catch(() => caches.match(SHELL_URL).then(hit => hit || caches.match('/')))
+        .catch(() => caches.match(SHELL_URL).then(hit => hit || caches.match('./')))
     );
     return;
   }
